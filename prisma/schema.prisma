@@ -21,10 +21,10 @@ model User {
 }
 
 model Monitor {
-  id             Int       @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())@unique
   slug           String?   @unique
-  websiteName    String
-  url            String
+  websiteName    String 
+  url            String    
   method         String    @default("GET")
   expectedStatus Int       @default(200)
   interval       Int
