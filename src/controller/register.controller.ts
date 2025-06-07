@@ -19,6 +19,7 @@ export const RegisterMonitor = async (
 ): Promise<void> => {
   try {
     const user = req.user;
+    console.log("[user]", user);
     if (!user) {
       throw ErrorFactory.unauthorized("User not authenticated");
     }
@@ -40,8 +41,9 @@ export const RegisterMonitor = async (
         timeout: data.timeout,
         isPaused: data.isPaused ?? false,
         regions: data.regions,
+        lastCheckedAt: new Date(),
         user: {
-          connect: { id: user.id },
+          connect: { id: user?.userId },
         },
       },
     });
@@ -80,7 +82,7 @@ export const UpdateMonitor = async (
     const updated = prisma.monitor.update({
       where: {
         id: Number(id),
-        userId: user?.id,
+        userId: user?.userId,
       },
       data: {
         ...parsedData,
@@ -118,7 +120,7 @@ export const DeleteMonitor = async (
     const updated = await prisma.monitor.update({
       where: {
         id: Number(id),
-        userId: user?.id,
+        userId: user?.userId,
       },
       data: {
         ...ParsedData,
@@ -153,7 +155,7 @@ export const FetchMonitor = async (
 
     const websiteData = await prisma.monitor.findMany({
       where: {
-        userId: user?.id,
+        userId: user?.userId,
       },
     });
 

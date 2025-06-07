@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { UserPayload } from "../types/user.types";
 
-const JWT_SECRET = process.env.JWT_SECRET || "";
+const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
 declare module "express" {
   export interface Request {
@@ -38,7 +38,7 @@ export const verifyRequest = async (
         typeof decoded === "object" &&
         decoded !== null &&
         "email" in decoded &&
-        "id" in decoded
+        "userId" in decoded
       ) {
         req.user = decoded as UserPayload;
         next();

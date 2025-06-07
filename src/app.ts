@@ -3,17 +3,23 @@ dotenv.config();
 
 import { Request, Response, NextFunction } from "express";
 import express from "express";
+import cron from "node-cron";
+import { runScheduler } from "./scheduler/runScheduler";
 
 const app = express();
 
 app.use(express.json());
-// routes
+
+// Routes
 import AuthRouter from "./routes/auth.route";
 import MonitorRouter from "./routes/monitor.route";
 import { verifyRequest } from "./middleware/auth.middleware";
+import MonitorResultRouter from "./routes/monitorResult.route";
 
+app.use("/api", MonitorResultRouter);
 app.use("/api", AuthRouter);
 app.use("/api", verifyRequest, MonitorRouter);
+
 app.get("/", (_, res: Response) => {
   res.send("Server running");
 });
@@ -33,6 +39,11 @@ app.use((error: any, req: Request, res: Response) => {
       status: error.status || 500,
     },
   });
+});
+
+cron.schedule("* * * * *", async () => {
+  console.log(`[Scheduler] Tick at ${new Date().toISOString()}`);
+  await runScheduler();
 });
 
 export default app;
