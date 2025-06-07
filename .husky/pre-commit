@@ -1,0 +1,8 @@
+
+echo "Running ESLint and Prettier checks on staged files..."
+
+# Run ESLint on staged TypeScript and JavaScript files
+npx eslint --fix $(git diff --cached --name-only --diff-filter=ACM | grep '\.[jt]sx\?$') || exit 1
+
+# Re-stage any fixed files
+git add $(git diff --cached --name-only --diff-filter=ACM)
