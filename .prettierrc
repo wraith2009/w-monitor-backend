@@ -1,0 +1,13 @@
+{
+  "printWidth": 80,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "parser": "typescript",
+  "endOfLine": "lf",
+  "overrides": [
+    {
+      "files": "tsconfig.json",
+      "options": { "parser": "json" }
+    }
+  ]
+}

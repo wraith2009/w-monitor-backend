@@ -7,3 +7,90 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id         Int       @id @default(autoincrement())
+  name       String
+  email      String    @unique
+  password   String?
+  oauthId    String?
+
+  monitors   Monitor[] @relation("user-monitors")
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Monitor {
+  id             Int            @id @default(autoincrement())
+  slug           String         @unique
+  websiteName    String
+  url            String
+  method         String         @default("GET")
+  expectedStatus Int            @default(200)
+  interval       Int            
+  timeout        Int            
+  isPaused       Boolean        @default(false)
+  regions        String[]       
+  lastCheckedAt  DateTime?
+
+  userId         Int
+  user           User           @relation("user-monitors", fields: [userId], references: [id])
+
+  results        MonitorResult[]
+  incidents      Incident[]
+  logs           MonitorLog[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model MonitorResult {
+  id           Int       @id @default(autoincrement())
+  monitorId    Int
+  monitor      Monitor   @relation(fields: [monitorId], references: [id])
+
+  region       String    
+  statusCode   Int?
+  isUp         Boolean
+  responseTime Int       
+  checkedAt    DateTime  @default(now())
+
+  errorMessage String?
+  rawResponse  String?
+
+  @@index([monitorId, region, checkedAt(sort: Desc)])
+  @@index([region, checkedAt(sort: Desc)])
+}
+
+model MonitorLog {
+  id           Int       @id @default(autoincrement())
+  monitorId    Int
+  monitor      Monitor   @relation(fields: [monitorId], references: [id])
+
+  region       String
+  level        String    
+  message      String
+  meta         Json?
+  createdAt    DateTime  @default(now())
+
+  @@index([monitorId, region, createdAt(sort: Desc)])
+  @@index([region, createdAt(sort: Desc)])
+}
+
+model Incident {
+  id           Int       @id @default(autoincrement())
+  monitorId    Int
+  monitor      Monitor   @relation(fields: [monitorId], references: [id])
+
+  startedAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  status       String    @default("OPEN") 
+  summary      String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([monitorId, status])
+  @@index([startedAt(sort: Desc)])
+}
