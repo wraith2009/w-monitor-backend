@@ -9,8 +9,11 @@ const app = express();
 app.use(express.json());
 // routes
 import AuthRouter from "./routes/auth.route";
+import MonitorRouter from "./routes/monitor.route";
+import { verifyRequest } from "./middleware/auth.middleware";
 
 app.use("/api", AuthRouter);
+app.use("/api", verifyRequest, MonitorRouter);
 app.get("/", (_, res: Response) => {
   res.send("Server running");
 });
