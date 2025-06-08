@@ -4,14 +4,7 @@ dotenv.config();
 import { REGION_SQS_MAP } from "../config/regionSqsClient";
 import { REGION_QUEUE_URLS } from "../config/regionQueueUrls";
 import { SendMessageBatchCommand } from "@aws-sdk/client-sqs";
-import { jobPayloads } from "../types/user.types";
 import prisma from "../db/db";
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  return Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
-    arr.slice(i * size, i * size + size),
-  );
-}
 
 export const runScheduler = async () => {
   const now = new Date();
@@ -33,9 +26,11 @@ export const runScheduler = async () => {
     return;
   }
 
+  const jobs = [];
+
   for (const monitor of dueMonitors) {
     for (const region of monitor.regions) {
-      jobPayloads.push({
+      jobs.push({
         region,
         monitorId: monitor.id,
         url: monitor.url,
@@ -46,46 +41,48 @@ export const runScheduler = async () => {
     }
   }
 
-  const grouped = jobPayloads.reduce(
-    (acc, job) => {
-      acc[job.region] = acc[job.region] || [];
-      acc[job.region].push(job);
-      return acc;
-    },
-    {} as Record<string, typeof jobPayloads>,
-  );
+  for (const job of jobs) {
+    const entry = {
+      Id: `${job.monitorId}-${Date.now()}`,
+      MessageBody: JSON.stringify(job),
+    };
 
-  for (const region of Object.keys(grouped)) {
-    const regionJobs = grouped[region];
-    const batches = chunkArray(regionJobs, 10);
+    const queueUrl = REGION_QUEUE_URLS[job.region];
 
-    for (const batch of batches) {
-      const entries = batch.map((job, i) => ({
-        Id: `${job.monitorId}-${i}`,
-        MessageBody: JSON.stringify(job),
-      }));
+    console.log(
+      `[${new Date().toISOString()}] Enqueuing 1 job to region: ${job.region}, queue: ${queueUrl}`,
+    );
 
-      try {
-        await REGION_SQS_MAP[region].send(
-          new SendMessageBatchCommand({
-            QueueUrl: REGION_QUEUE_URLS[region],
-            Entries: entries,
-          }),
-        );
-      } catch (error) {
-        console.error(`Failed to enqueue jobs for region ${region}:`, error);
-      }
+    try {
+      await REGION_SQS_MAP[job.region].send(
+        new SendMessageBatchCommand({
+          QueueUrl: queueUrl,
+          Entries: [entry],
+        }),
+      );
+
+      console.log(
+        `Successfully enqueued job to region: ${job.region}, queue: ${queueUrl}`,
+      );
+    } catch (error) {
+      console.error(
+        `Failed to enqueue job for region ${job.region}, queue: ${queueUrl}:`,
+        error,
+      );
     }
   }
 
   await Promise.all(
-    dueMonitors.map((monitor) =>
-      prisma.monitor.update({
+    dueMonitors.map(async (monitor) => {
+      const updated = await prisma.monitor.update({
         where: { id: monitor.id },
         data: { lastCheckedAt: now },
-      }),
-    ),
+      });
+      console.log(`[Updated Monitor]`, updated);
+    }),
   );
 
-  console.log(`[${now.toISOString()}] Scheduled ${jobPayloads.length} jobs.`);
+  console.log(
+    `[${now.toISOString()}]  Scheduled ${jobs.length} jobs across all regions.`,
+  );
 };
