@@ -33,6 +33,8 @@ model Monitor {
   regions        String[]
   lastCheckedAt  DateTime?
 
+  alertRecipients MonitorAlertRecipient[]
+
   userId Int
   user   User @relation("user-monitors", fields: [userId], references: [id])
 
@@ -89,6 +91,8 @@ model Incident {
   status     String    @default("OPEN")
   summary    String?
 
+  lastNotifiedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -101,4 +105,15 @@ model SlugTicket {
   range_start   Int
   range_end     Int
   current_value Int
+}
+
+model MonitorAlertRecipient {
+  id         Int      @id @default(autoincrement())
+  email      String
+  monitorId  Int
+  monitor    Monitor  @relation(fields: [monitorId], references: [id])
+
+  createdAt  DateTime @default(now())
+
+  @@unique([email, monitorId])
 }

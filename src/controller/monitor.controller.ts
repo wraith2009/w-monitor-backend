@@ -168,3 +168,95 @@ export const FetchMonitor = async (
     globalErrorHandler(error as BaseError, req, res);
   }
 };
+
+export const addMonitorRecipient = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const user = req.user;
+  const { monitorId } = req.params;
+  const { email } = req.body;
+
+  if (!email || typeof email !== "string") {
+    throw ErrorFactory.notFound(
+      "email not found or email isn't of type string",
+    );
+  }
+
+  try {
+    const existingMonitor = await prisma.monitor.findUnique({
+      where: {
+        id: parseInt(monitorId),
+        userId: user?.userId,
+      },
+    });
+
+    if (!existingMonitor) {
+      throw ErrorFactory.notFound("monitor not found");
+    }
+
+    await prisma.monitorAlertRecipient.create({
+      data: {
+        email,
+        monitorId: parseInt(monitorId),
+      },
+    });
+
+    apiResponse(res, {
+      statusCode: 201,
+      message: "Recipient Added successfully",
+    });
+  } catch (error) {
+    globalErrorHandler(error as BaseError, req, res);
+  }
+};
+
+export const removeMonitorRecipient = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const user = req.user;
+  const { monitorId } = req.params;
+
+  const { email } = req.body;
+  if (!email || typeof email !== "string") {
+    throw ErrorFactory.notFound("Invalid email parameter");
+  }
+
+  try {
+    const existingMonitor = await prisma.monitor.findUnique({
+      where: {
+        id: parseInt(monitorId),
+        userId: user?.userId,
+      },
+    });
+
+    if (!existingMonitor) {
+      throw ErrorFactory.notFound("Monitor not found or not authorized");
+    }
+
+    const recipient = await prisma.monitorAlertRecipient.findFirst({
+      where: {
+        monitorId: parseInt(monitorId),
+        email,
+      },
+    });
+
+    if (!recipient) {
+      throw ErrorFactory.notFound("Recipient not found for this monitor");
+    }
+
+    await prisma.monitorAlertRecipient.delete({
+      where: {
+        id: recipient.id,
+      },
+    });
+
+    apiResponse(res, {
+      statusCode: 200,
+      message: "Recipient removed successfully",
+    });
+  } catch (error) {
+    globalErrorHandler(error as BaseError, req, res);
+  }
+};
