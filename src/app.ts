@@ -15,11 +15,12 @@ import AuthRouter from "./routes/auth.route";
 import MonitorRouter from "./routes/monitor.route";
 import { verifyRequest } from "./middleware/auth.middleware";
 import MonitorResultRouter from "./routes/monitorResult.route";
+import DashboardRouter from "./routes/dashboard.route";
 
 app.use("/api", MonitorResultRouter);
 app.use("/api", AuthRouter);
 app.use("/api", verifyRequest, MonitorRouter);
-
+app.use("/api/Dashboard", verifyRequest, DashboardRouter);
 app.get("/", (_, res: Response) => {
   res.send("Server running");
 });
