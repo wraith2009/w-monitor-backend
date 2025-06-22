@@ -79,7 +79,7 @@ export const notifyMonitorDown = async ({
   for (const recipient of recipients) {
     const emailRecipient: EmailRecipient = {
       email: recipient.email,
-      name: recipient.email.split("@")[0], // Optional: derive name
+      name: recipient.email.split("@")[0],
     };
 
     const result = await sendEmail(
