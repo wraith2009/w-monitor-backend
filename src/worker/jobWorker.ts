@@ -7,6 +7,7 @@ import {
   BaseError,
   globalErrorHandler,
 } from "../utils/errorHandler";
+import { notifyMonitorDown } from "../services/incidentNotifier";
 
 const ResultPayloadSchema = z.object({
   monitorId: z.number(),
@@ -38,6 +39,18 @@ export const saveMonitorResult = async (
 
     const { monitorId, region, statusCode, isUp, responseTime, errorMessage } =
       result.data;
+
+    const monitor = await prisma.monitor.findUnique({
+      where: { id: monitorId },
+    });
+
+    if (!monitor) {
+      throw ErrorFactory.notFound("Monitor not found");
+    }
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const shouldNotify =
+      !isUp && (!monitor.lastCheckedAt || monitor.lastCheckedAt < oneHourAgo);
 
     await prisma.monitorResult.create({
       data: {
@@ -76,8 +89,22 @@ export const saveMonitorResult = async (
             monitorId,
             status: "OPEN",
             summary: `Downtime detected from ${region}`,
+            lastNotifiedAt: shouldNotify ? new Date() : null,
           },
         });
+
+        if (shouldNotify) {
+          void notifyMonitorDown({ monitorId, region, errorMessage });
+        }
+      } else {
+        if (shouldNotify) {
+          await prisma.incident.update({
+            where: { id: activeIncident.id },
+            data: { lastNotifiedAt: new Date() },
+          });
+
+          void notifyMonitorDown({ monitorId, region, errorMessage });
+        }
       }
     } else {
       await prisma.incident.updateMany({
@@ -91,6 +118,13 @@ export const saveMonitorResult = async (
         },
       });
     }
+
+    await prisma.monitor.update({
+      where: { id: monitorId },
+      data: {
+        lastCheckedAt: new Date(),
+      },
+    });
 
     return apiResponse(res, {
       statusCode: 200,
