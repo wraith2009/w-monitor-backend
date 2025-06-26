@@ -40,6 +40,15 @@ export const saveMonitorResult = async (
     const { monitorId, region, statusCode, isUp, responseTime, errorMessage } =
       result.data;
 
+    console.log("[MonitorResult] Incoming payload:", {
+      monitorId,
+      region,
+      statusCode,
+      isUp,
+      responseTime,
+      errorMessage,
+    });
+
     const monitor = await prisma.monitor.findUnique({
       where: { id: monitorId },
     });
