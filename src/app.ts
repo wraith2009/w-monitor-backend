@@ -9,7 +9,11 @@ import cors from "cors";
 
 const app = express();
 
-const allowedOrigins = ["http://localhost:5173", "http://localhost:5174"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://w-monitor-frontend.vercel.app",
+];
 
 const corsOptions = {
   origin: function (
