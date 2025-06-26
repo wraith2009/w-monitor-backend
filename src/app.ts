@@ -51,12 +51,13 @@ import { verifyRequest } from "./middleware/auth.middleware";
 import MonitorResultRouter from "./routes/monitorResult.route";
 import DashboardRouter from "./routes/dashboard.route";
 import IncidentRouter from "./routes/incident.route";
-
+import WebsiteRouter from "./routes/website.route";
 app.use("/api", MonitorResultRouter);
 app.use("/api", AuthRouter);
 app.use("/api", verifyRequest, MonitorRouter);
 app.use("/api/Dashboard", verifyRequest, DashboardRouter);
 app.use("/api/incidents", verifyRequest, IncidentRouter);
+app.use("/api/websites", verifyRequest, WebsiteRouter);
 app.get("/", (_, res: Response) => {
   res.send("Server running");
 });
