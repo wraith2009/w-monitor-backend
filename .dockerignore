@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.env
+.vscode
+Dockerfile
+docker-compose.yml
+*.log
+*.md
+vercel.json
+.vercel
