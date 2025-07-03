@@ -6,6 +6,7 @@ import express from "express";
 import cron from "node-cron";
 import { runScheduler } from "./scheduler/runScheduler";
 import cors from "cors";
+import { startLogCleanupJob } from "./services/logCleanup";
 
 const app = express();
 
@@ -52,12 +53,15 @@ import MonitorResultRouter from "./routes/monitorResult.route";
 import DashboardRouter from "./routes/dashboard.route";
 import IncidentRouter from "./routes/incident.route";
 import WebsiteRouter from "./routes/website.route";
+import MonitorLogRouter from "./routes/monitorLog.route";
+
 app.use("/api", MonitorResultRouter);
 app.use("/api", AuthRouter);
 app.use("/api", verifyRequest, MonitorRouter);
 app.use("/api/Dashboard", verifyRequest, DashboardRouter);
 app.use("/api/incidents", verifyRequest, IncidentRouter);
 app.use("/api/websites", verifyRequest, WebsiteRouter);
+app.use("/api/monitor", verifyRequest, MonitorLogRouter);
 app.get("/", (_, res: Response) => {
   res.send("Server running");
 });
@@ -78,6 +82,9 @@ app.use((error: any, req: Request, res: Response) => {
     },
   });
 });
+
+console.log("[reached cleanup]");
+startLogCleanupJob();
 
 cron.schedule("* * * * *", async () => {
   console.log(`[Scheduler] Tick at ${new Date().toISOString()}`);

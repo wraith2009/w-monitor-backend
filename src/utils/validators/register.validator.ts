@@ -19,10 +19,17 @@ export const CreateMonitorSchema = z.object({
   regions: z.array(z.nativeEnum(Region)).default([Region.AP_SOUTH_1]),
 });
 
+const StatusEnum = z.enum(["UP", "PAUSED", "DOWN"]);
+
 export const UpdateMonitorSchema = CreateMonitorSchema.omit({
   websiteName: true,
   url: true,
   regions: true,
+}).transform((data) => {
+  if (data.isPaused) {
+    return { ...data, status: "PAUSED" as z.infer<typeof StatusEnum> };
+  }
+  return data;
 });
 
 export const DeleteMonitorSchema = z.object({

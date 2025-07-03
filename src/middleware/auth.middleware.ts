@@ -38,8 +38,17 @@ export const verifyRequest = async (
         typeof decoded === "object" &&
         decoded !== null &&
         "email" in decoded &&
-        "userId" in decoded
+        "userId" in decoded &&
+        "subPlan" in decoded &&
+        "isEmailVerified" in decoded
       ) {
+        if (!decoded.isEmailVerified) {
+          res.status(403).json({
+            message:
+              "Email not verified. Please verify your email to continue.",
+          });
+          return;
+        }
         req.user = decoded as UserPayload;
         next();
       } else {

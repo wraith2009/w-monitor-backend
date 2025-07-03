@@ -50,19 +50,46 @@ export const ListIncidents = async (
 ): Promise<void> => {
   try {
     const user = req.user;
-    const { monitorId, status } = req.query;
+    const { monitorId, status, region, month, year } = req.query;
 
     if (!user) throw ErrorFactory.unauthorized("User not authenticated");
 
-    const incidents = await prisma.incident.findMany({
-      where: {
-        monitor: {
-          userId: user.userId,
-          isDeleted: false,
-        },
-        ...(monitorId ? { monitorId: Number(monitorId) } : {}),
-        ...(status ? { status: String(status) } : {}),
+    const filters: any = {
+      monitor: {
+        userId: user.userId,
+        isDeleted: false,
       },
+      ...(monitorId ? { monitorId: Number(monitorId) } : {}),
+      ...(status ? { status: String(status) } : {}),
+      ...(region
+        ? { summary: { contains: String(region), mode: "insensitive" } }
+        : {}),
+    };
+
+    if (month && year) {
+      const monthNumber = Number(month);
+      const yearNumber = Number(year);
+
+      if (
+        isNaN(monthNumber) ||
+        monthNumber < 1 ||
+        monthNumber > 12 ||
+        isNaN(yearNumber)
+      ) {
+        throw ErrorFactory.notFound("Invalid month or year for filtering.");
+      }
+
+      const startDate = new Date(yearNumber, monthNumber - 1, 1);
+      const endDate = new Date(yearNumber, monthNumber, 0, 23, 59, 59, 999);
+
+      filters.startedAt = {
+        gte: startDate,
+        lte: endDate,
+      };
+    }
+
+    const incidents = await prisma.incident.findMany({
+      where: filters,
       orderBy: { startedAt: "desc" },
     });
 

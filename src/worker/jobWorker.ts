@@ -86,10 +86,7 @@ export const saveMonitorResult = async (
 
     if (!isUp) {
       const activeIncident = await prisma.incident.findFirst({
-        where: {
-          monitorId,
-          status: "OPEN",
-        },
+        where: { monitorId, status: "OPEN" },
       });
 
       if (!activeIncident) {
@@ -105,26 +102,18 @@ export const saveMonitorResult = async (
         if (shouldNotify) {
           void notifyMonitorDown({ monitorId, region, errorMessage });
         }
-      } else {
-        if (shouldNotify) {
-          await prisma.incident.update({
-            where: { id: activeIncident.id },
-            data: { lastNotifiedAt: new Date() },
-          });
+      } else if (shouldNotify) {
+        await prisma.incident.update({
+          where: { id: activeIncident.id },
+          data: { lastNotifiedAt: new Date() },
+        });
 
-          void notifyMonitorDown({ monitorId, region, errorMessage });
-        }
+        void notifyMonitorDown({ monitorId, region, errorMessage });
       }
     } else {
       await prisma.incident.updateMany({
-        where: {
-          monitorId,
-          status: "OPEN",
-        },
-        data: {
-          status: "RESOLVED",
-          resolvedAt: new Date(),
-        },
+        where: { monitorId, status: "OPEN" },
+        data: { status: "RESOLVED", resolvedAt: new Date() },
       });
     }
 
@@ -132,6 +121,7 @@ export const saveMonitorResult = async (
       where: { id: monitorId },
       data: {
         lastCheckedAt: new Date(),
+        status: isUp ? "UP" : "DOWN",
       },
     });
 

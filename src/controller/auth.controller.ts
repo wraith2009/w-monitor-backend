@@ -342,3 +342,104 @@ export const VerifyEmail = async (
     globalErrorHandler(error as BaseError, req, res);
   }
 };
+
+export const RequestEmailVerification = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user) {
+      throw ErrorFactory.unauthorized("Unauthorized user");
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isEmailVerified: true,
+        verifiedEmailSent: true,
+      },
+    });
+
+    if (!dbUser) {
+      throw ErrorFactory.notFound("User not found.");
+    }
+
+    if (dbUser.isEmailVerified) {
+      throw ErrorFactory.conflict("Email is already verified.");
+    }
+
+    const now = new Date();
+    if (
+      dbUser.verifiedEmailSent &&
+      now.getTime() - dbUser.verifiedEmailSent.getTime() < 10 * 60 * 1000
+    ) {
+      const minutesLeft = Math.ceil(
+        (10 * 60 * 1000 -
+          (now.getTime() - dbUser.verifiedEmailSent.getTime())) /
+          60000,
+      );
+      throw ErrorFactory.conflict(
+        `Verification email recently sent. Please wait ${minutesLeft} minute(s) before requesting again.`,
+      );
+    }
+
+    const verificationToken = jwt.sign(
+      { userId: dbUser.id, email: dbUser.email },
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "24h" },
+    );
+
+    const verificationLink = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+
+    const emailContent = {
+      subject: "Verify your email address",
+      htmlContent: `
+        <h2>Verify your email address</h2>
+        <p>Hi ${dbUser.name || ""},</p>
+        <p>Please verify your email address by clicking the button below:</p>
+        <a href="${verificationLink}" style="
+          display: inline-block;
+          padding: 10px 20px;
+          background-color: #4f46e5;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+          font-weight: bold;
+        ">Verify Email</a>
+        <p>If you did not create an account, please ignore this email.</p>
+        <p><strong>Note:</strong> If you don't see the email in your inbox, please check your spam folder.</p>
+      `,
+      textContent: `Verify your email by visiting this link: ${verificationLink}\n\nIf you don't see the email in your inbox, please check your spam folder.`,
+    };
+
+    const sendResult = await sendEmail(
+      process.env.EMAIL_USER || "no-reply@example.com",
+      "Your App Name",
+      { email: dbUser.email, name: dbUser.name || undefined },
+      emailContent,
+    );
+
+    if (!sendResult.success) {
+      throw ErrorFactory.internal(
+        `Failed to send verification email: ${sendResult.error?.message}`,
+      );
+    }
+
+    await prisma.user.update({
+      where: { id: dbUser.id },
+      data: { verifiedEmailSent: now },
+    });
+
+    apiResponse(res, {
+      statusCode: 200,
+      message:
+        "Verification email sent successfully. Please check your inbox and spam folder.",
+    });
+  } catch (error) {
+    globalErrorHandler(error as BaseError, req, res);
+  }
+};

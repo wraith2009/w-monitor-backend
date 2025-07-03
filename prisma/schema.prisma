@@ -14,11 +14,20 @@ model User {
   password String?
   oauthId  String?
   isEmailVerified Boolean?
+  verifiedEmailSent  DateTime?
+
+  subPlan SubscriptionPlanEnum? @default(BASIC)
 
   monitors Monitor[] @relation("user-monitors")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum SubscriptionPlanEnum {
+  BASIC
+  PREMIUM
+  ENTERPRISE
 }
 
 model Monitor {
@@ -34,7 +43,7 @@ model Monitor {
   regions        String[]
   lastCheckedAt  DateTime?
 
-  status         StatusEnum?
+  status         StatusEnum? @default(UP)
 
   alertRecipients MonitorAlertRecipient[]
 
@@ -51,7 +60,7 @@ model Monitor {
   updatedAt DateTime @updatedAt
 }
 
-enum StatusEnum{
+enum StatusEnum {
   UP
   PAUSED
   DOWN
