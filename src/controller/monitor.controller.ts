@@ -19,16 +19,51 @@ export const RegisterMonitor = async (
 ): Promise<void> => {
   try {
     const user = req.user;
-    console.log("[user]", user);
     if (!user) {
       throw ErrorFactory.unauthorized("User not authenticated");
+    }
+
+    const [dbUser, monitorCount] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: user.userId },
+        select: { subPlan: true },
+      }),
+      prisma.monitor.count({
+        where: {
+          userId: user.userId,
+        },
+      }),
+    ]);
+
+    if (!dbUser) {
+      throw ErrorFactory.notFound("User record not found");
+    }
+
+    let maxMonitors: number | null = null;
+    switch (dbUser.subPlan) {
+      case "BASIC":
+        maxMonitors = 2;
+        break;
+      case "PREMIUM":
+        maxMonitors = 10;
+        break;
+      case "ENTERPRISE":
+        maxMonitors = null;
+        break;
+      default:
+        maxMonitors = 2;
+    }
+
+    if (maxMonitors !== null && monitorCount >= maxMonitors) {
+      throw ErrorFactory.forbidden(
+        `Monitor limit reached for your plan (${dbUser.subPlan}). Please upgrade to add more monitors.`,
+      );
     }
 
     const validation = CreateMonitorSchema.safeParse(req.body);
     if (!validation.success) {
       throw ErrorFactory.validation(validation.error);
     }
-
     const data = validation.data;
 
     const monitor = await prisma.monitor.create({
@@ -43,16 +78,16 @@ export const RegisterMonitor = async (
         regions: data.regions,
         lastCheckedAt: new Date(),
         user: {
-          connect: { id: user?.userId },
+          connect: { id: user.userId },
         },
       },
     });
 
     if (!monitor) {
-      throw ErrorFactory.dbOperation("unable to create monitor record");
+      throw ErrorFactory.dbOperation("Unable to create monitor record");
     }
 
-    void generateSlug(monitor?.id);
+    void generateSlug(monitor.id);
 
     apiResponse(res, {
       statusCode: 201,
@@ -150,19 +185,49 @@ export const FetchMonitor = async (
   try {
     const user = req.user;
     if (!user) {
-      throw ErrorFactory.unauthorized("unauthorized access");
+      throw ErrorFactory.unauthorized("Unauthorized access");
     }
 
-    const websiteData = await prisma.monitor.findMany({
-      where: {
-        userId: user?.userId,
-      },
+    const monitors = await prisma.monitor.findMany({
+      where: { userId: user.userId },
+    });
+
+    const monitorIds = monitors.map((m) => m.id);
+
+    const [totalResults, upResults] = await Promise.all([
+      prisma.monitorResult.groupBy({
+        by: ["monitorId"],
+        where: { monitorId: { in: monitorIds } },
+        _count: { id: true },
+      }),
+      prisma.monitorResult.groupBy({
+        by: ["monitorId"],
+        where: { monitorId: { in: monitorIds }, isUp: true },
+        _count: { id: true },
+      }),
+    ]);
+
+    const totalMap = new Map<number, number>();
+    totalResults.forEach((r) => totalMap.set(r.monitorId, r._count.id));
+
+    const upMap = new Map<number, number>();
+    upResults.forEach((r) => upMap.set(r.monitorId, r._count.id));
+
+    const monitorsWithUptime = monitors.map((monitor) => {
+      const total = totalMap.get(monitor.id) || 0;
+      const up = upMap.get(monitor.id) || 0;
+      const uptimePercentage = total > 0 ? (up / total) * 100 : null;
+
+      return {
+        ...monitor,
+        uptimePercentage,
+      };
     });
 
     apiResponse(res, {
       statusCode: 200,
-      message: "website fetched successfully",
-      data: websiteData,
+      message: "Monitors fetched successfully with uptime %",
+      data: monitorsWithUptime,
     });
   } catch (error) {
     globalErrorHandler(error as BaseError, req, res);
@@ -178,33 +243,64 @@ export const addMonitorRecipient = async (
   const { email } = req.body;
 
   if (!email || typeof email !== "string") {
-    throw ErrorFactory.notFound(
-      "email not found or email isn't of type string",
-    );
+    throw ErrorFactory.notFound("Email not provided or invalid type");
   }
 
   try {
-    const existingMonitor = await prisma.monitor.findUnique({
-      where: {
-        id: parseInt(monitorId),
-        userId: user?.userId,
-      },
-    });
+    const parsedMonitorId = parseInt(monitorId, 10);
+    if (isNaN(parsedMonitorId)) {
+      throw ErrorFactory.notFound("Invalid monitorId");
+    }
+
+    const [existingMonitor, dbUser, recipientCount] = await Promise.all([
+      prisma.monitor.findUnique({
+        where: {
+          id: parsedMonitorId,
+          userId: user?.userId,
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id: user?.userId },
+        select: { subPlan: true },
+      }),
+      prisma.monitorAlertRecipient.count({
+        where: {
+          monitorId: parsedMonitorId,
+        },
+      }),
+    ]);
 
     if (!existingMonitor) {
-      throw ErrorFactory.notFound("monitor not found");
+      throw ErrorFactory.notFound("Monitor not found");
+    }
+
+    if (!dbUser) {
+      throw ErrorFactory.notFound("User not found");
+    }
+
+    const maxRecipients =
+      dbUser.subPlan === "PREMIUM"
+        ? 3
+        : dbUser.subPlan === "ENTERPRISE"
+          ? 10
+          : 1;
+
+    if (recipientCount >= maxRecipients) {
+      throw ErrorFactory.forbidden(
+        `Recipient limit reached for your plan (${dbUser.subPlan}). Upgrade your plan to add more recipients.`,
+      );
     }
 
     await prisma.monitorAlertRecipient.create({
       data: {
         email,
-        monitorId: parseInt(monitorId),
+        monitorId: parsedMonitorId,
       },
     });
 
     apiResponse(res, {
       statusCode: 201,
-      message: "Recipient Added successfully",
+      message: "Recipient added successfully",
     });
   } catch (error) {
     globalErrorHandler(error as BaseError, req, res);
