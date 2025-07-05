@@ -124,7 +124,12 @@ export const SignInUser = async (
     }
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      {
+        userId: user.id,
+        email: user.email,
+        subPlan: user.subPlan,
+        isEmailVerified: user.isEmailVerified,
+      },
       process.env.JWT_SECRET || "your-secret-key",
       { expiresIn: "24h" },
     );
