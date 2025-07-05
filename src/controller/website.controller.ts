@@ -12,21 +12,15 @@ export const GetWebsiteDashboardStats = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const user = req.user;
-    const { monitorId } = req.params;
+    const { slug } = req.params;
 
-    if (!user) {
-      throw ErrorFactory.unauthorized("User not authenticated");
-    }
-
-    if (!monitorId) {
-      throw ErrorFactory.notFound("Monitor ID is required");
+    if (!slug) {
+      throw ErrorFactory.forbidden("Can not proceed further without slug");
     }
 
     const monitor = await prisma.monitor.findFirst({
       where: {
-        id: parseInt(monitorId),
-        userId: user.userId,
+        slug: slug,
         isDeleted: false,
       },
     });
@@ -39,25 +33,25 @@ export const GetWebsiteDashboardStats = async (
       await Promise.all([
         prisma.monitorResult.count({
           where: {
-            monitorId: parseInt(monitorId),
+            monitorId: monitor?.id,
           },
         }),
         prisma.monitorResult.count({
           where: {
-            monitorId: parseInt(monitorId),
+            monitorId: monitor?.id,
             isUp: true,
           },
         }),
         prisma.monitorResult.aggregate({
           _avg: { responseTime: true },
           where: {
-            monitorId: parseInt(monitorId),
+            monitorId: monitor?.id,
             isUp: true,
           },
         }),
         prisma.incident.count({
           where: {
-            monitorId: parseInt(monitorId),
+            monitorId: monitor?.id,
           },
         }),
       ]);
