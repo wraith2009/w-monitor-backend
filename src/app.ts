@@ -57,10 +57,10 @@ import MonitorLogRouter from "./routes/monitorLog.route";
 
 app.use("/api", MonitorResultRouter);
 app.use("/api", AuthRouter);
+app.use("/api/websites", WebsiteRouter);
 app.use("/api", verifyRequest, MonitorRouter);
 app.use("/api/Dashboard", verifyRequest, DashboardRouter);
 app.use("/api/incidents", verifyRequest, IncidentRouter);
-app.use("/api/websites", verifyRequest, WebsiteRouter);
 app.use("/api/monitor", verifyRequest, MonitorLogRouter);
 app.get("/", (_, res: Response) => {
   res.send("Server running");
