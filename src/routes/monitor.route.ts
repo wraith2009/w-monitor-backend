@@ -3,6 +3,7 @@ import {
   addMonitorRecipient,
   DeleteMonitor,
   FetchMonitor,
+  getMonitorRecipient,
   RegisterMonitor,
   removeMonitorRecipient,
   UpdateMonitor,
@@ -17,8 +18,8 @@ MonitorRouter.route("/get-monitor").get(FetchMonitor);
 MonitorRouter.route("/monitors/:monitorId/recipients").post(
   addMonitorRecipient,
 );
-MonitorRouter.route("monitors/:monitorId/recipients").delete(
+MonitorRouter.route("/monitors/:monitorId/recipients").delete(
   removeMonitorRecipient,
 );
-
+MonitorRouter.route("/monitors/:monitorId").get(getMonitorRecipient);
 export default MonitorRouter;

@@ -194,7 +194,7 @@ export const FetchMonitor = async (
 
     const monitorIds = monitors.map((m) => m.id);
 
-    const [totalResults, upResults] = await Promise.all([
+    const [totalResults, upResults, avgResponseResults] = await Promise.all([
       prisma.monitorResult.groupBy({
         by: ["monitorId"],
         where: { monitorId: { in: monitorIds } },
@@ -205,6 +205,11 @@ export const FetchMonitor = async (
         where: { monitorId: { in: monitorIds }, isUp: true },
         _count: { id: true },
       }),
+      prisma.monitorResult.groupBy({
+        by: ["monitorId"],
+        where: { monitorId: { in: monitorIds } },
+        _avg: { responseTime: true },
+      }),
     ]);
 
     const totalMap = new Map<number, number>();
@@ -213,21 +218,29 @@ export const FetchMonitor = async (
     const upMap = new Map<number, number>();
     upResults.forEach((r) => upMap.set(r.monitorId, r._count.id));
 
-    const monitorsWithUptime = monitors.map((monitor) => {
+    const avgResponseMap = new Map<number, number | null>();
+    avgResponseResults.forEach((r) =>
+      avgResponseMap.set(r.monitorId, r._avg.responseTime),
+    );
+
+    const monitorsWithStats = monitors.map((monitor) => {
       const total = totalMap.get(monitor.id) || 0;
       const up = upMap.get(monitor.id) || 0;
       const uptimePercentage = total > 0 ? (up / total) * 100 : null;
+      const averageResponseTime = avgResponseMap.get(monitor.id) ?? null;
 
       return {
         ...monitor,
         uptimePercentage,
+        averageResponseTime,
       };
     });
 
     apiResponse(res, {
       statusCode: 200,
-      message: "Monitors fetched successfully with uptime %",
-      data: monitorsWithUptime,
+      message:
+        "Monitors fetched successfully with uptime % and avg response time",
+      data: monitorsWithStats,
     });
   } catch (error) {
     globalErrorHandler(error as BaseError, req, res);
@@ -351,6 +364,69 @@ export const removeMonitorRecipient = async (
     apiResponse(res, {
       statusCode: 200,
       message: "Recipient removed successfully",
+    });
+  } catch (error) {
+    globalErrorHandler(error as BaseError, req, res);
+  }
+};
+
+export const getMonitorRecipient = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const user = req.user;
+    const { monitorId } = req.params;
+
+    if (!user) {
+      throw ErrorFactory.unauthorized("User not authenticated");
+    }
+
+    const parsedMonitorId = parseInt(monitorId, 10);
+    if (isNaN(parsedMonitorId)) {
+      throw ErrorFactory.notFound("Invalid monitorId provided");
+    }
+
+    const monitor = await prisma.monitor.findFirst({
+      where: {
+        id: parsedMonitorId,
+        userId: user.userId,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        websiteName: true,
+        url: true,
+      },
+    });
+
+    if (!monitor) {
+      throw ErrorFactory.notFound("Monitor not found or access denied");
+    }
+
+    const recipients = await prisma.monitorAlertRecipient.findMany({
+      where: {
+        monitorId: monitor.id,
+      },
+      select: {
+        id: true,
+        email: true,
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    apiResponse(res, {
+      statusCode: 200,
+      message: "Monitor recipients fetched successfully",
+      data: {
+        monitorId: monitor.id,
+        monitorName: monitor.websiteName,
+        monitorUrl: monitor.url,
+        recipients,
+      },
     });
   } catch (error) {
     globalErrorHandler(error as BaseError, req, res);

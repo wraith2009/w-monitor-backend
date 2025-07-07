@@ -88,45 +88,23 @@ export const GetWebsiteRegionStats = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const user = req.user;
-    const { monitorId } = req.params;
-
-    if (!user) throw ErrorFactory.unauthorized("User not authenticated");
-
-    if (!monitorId) {
-      throw ErrorFactory.notFound("Monitor ID is required");
-    }
+    const { slug } = req.params;
+    if (!slug) throw ErrorFactory.forbidden("Slug is required");
 
     const monitor = await prisma.monitor.findFirst({
-      where: {
-        id: parseInt(monitorId),
-        userId: user.userId,
-        isDeleted: false,
-      },
+      where: { slug, isDeleted: false },
     });
-
-    if (!monitor) {
-      throw ErrorFactory.notFound("Monitor not found");
-    }
+    if (!monitor) throw ErrorFactory.notFound("Monitor not found");
 
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const results = await prisma.monitorResult.findMany({
       where: {
-        monitorId: parseInt(monitorId),
-        checkedAt: {
-          gte: twentyFourHoursAgo,
-        },
+        monitorId: monitor.id,
+        checkedAt: { gte: twentyFourHoursAgo },
       },
-      select: {
-        region: true,
-        isUp: true,
-        responseTime: true,
-        checkedAt: true,
-      },
-      orderBy: {
-        checkedAt: "desc",
-      },
+      select: { region: true, isUp: true, responseTime: true, checkedAt: true },
+      orderBy: { checkedAt: "desc" },
     });
 
     const regionMap: Record<
@@ -151,17 +129,16 @@ export const GetWebsiteRegionStats = async (
           latestStatus: isUp,
         };
       }
-
       const group = regionMap[region];
       group.total += 1;
       if (isUp) group.up += 1;
-      if (responseTime !== null && isUp) {
+      if (isUp && responseTime != null) {
         group.totalResponse += responseTime;
         group.countResponse += 1;
       }
     }
 
-    const data = Object.entries(regionMap).map(([region, stats]) => ({
+    const regionStats = Object.entries(regionMap).map(([region, stats]) => ({
       region,
       uptime:
         stats.total === 0
@@ -181,7 +158,7 @@ export const GetWebsiteRegionStats = async (
         monitorId: monitor.id,
         monitorName: monitor.websiteName,
         monitorUrl: monitor.url,
-        regionStats: data,
+        regionStats,
       },
     });
   } catch (error) {
@@ -194,61 +171,38 @@ export const GetWebsiteUptimeTrend = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const user = req.user;
-    const { monitorId } = req.params;
-
-    if (!user) throw ErrorFactory.unauthorized("User not authenticated");
-
-    if (!monitorId) {
-      throw ErrorFactory.notFound("Monitor ID is required");
-    }
+    const { slug } = req.params;
+    if (!slug) throw ErrorFactory.forbidden("Slug is required");
 
     const monitor = await prisma.monitor.findFirst({
-      where: {
-        id: parseInt(monitorId),
-        userId: user.userId,
-        isDeleted: false,
-      },
+      where: { slug, isDeleted: false },
     });
-
-    if (!monitor) {
-      throw ErrorFactory.notFound("Monitor not found");
-    }
+    if (!monitor) throw ErrorFactory.notFound("Monitor not found");
 
     const now = new Date();
     const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     const results = await prisma.monitorResult.findMany({
       where: {
-        monitorId: parseInt(monitorId),
-        checkedAt: {
-          gte: twentyFourHoursAgo,
-        },
+        monitorId: monitor.id,
+        checkedAt: { gte: twentyFourHoursAgo },
       },
-      select: {
-        isUp: true,
-        responseTime: true,
-        checkedAt: true,
-      },
+      select: { isUp: true, checkedAt: true },
     });
 
     const buckets: Record<string, { up: number; total: number }> = {};
-
     for (let i = 0; i < 24; i++) {
       const label = `${i.toString().padStart(2, "0")}:00`;
       buckets[label] = { up: 0, total: 0 };
     }
 
-    results.forEach((result) => {
-      const date = new Date(result.checkedAt);
-      const hour = date.getHours();
+    for (const result of results) {
+      const hour = new Date(result.checkedAt).getHours();
       const label = `${hour.toString().padStart(2, "0")}:00`;
-
-      if (!buckets[label]) return;
-
+      if (!buckets[label]) continue;
       buckets[label].total += 1;
       if (result.isUp) buckets[label].up += 1;
-    });
+    }
 
     const trend = Object.entries(buckets).map(([hour, data]) => ({
       hour,
@@ -278,83 +232,55 @@ export const GetWebsiteExtendedUptimeTrend = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const user = req.user;
-    const { monitorId } = req.params;
+    const { slug } = req.params;
     const { timeRange = "7d" } = req.query;
 
-    if (!user) throw ErrorFactory.unauthorized("User not authenticated");
-
-    if (!monitorId) {
-      throw ErrorFactory.notFound("Monitor ID is required");
-    }
+    if (!slug) throw ErrorFactory.forbidden("Slug is required");
 
     const monitor = await prisma.monitor.findFirst({
-      where: {
-        id: parseInt(monitorId),
-        userId: user.userId,
-        isDeleted: false,
-      },
+      where: { slug, isDeleted: false },
     });
-
-    if (!monitor) {
-      throw ErrorFactory.notFound("Monitor not found");
-    }
+    if (!monitor) throw ErrorFactory.notFound("Monitor not found");
 
     const now = new Date();
     let daysBack: number;
-    let bucketSize: string;
-
     switch (timeRange) {
       case "7d":
         daysBack = 7;
-        bucketSize = "day";
         break;
       case "30d":
         daysBack = 30;
-        bucketSize = "day";
         break;
       case "90d":
         daysBack = 90;
-        bucketSize = "day";
         break;
       default:
         daysBack = 7;
-        bucketSize = "day";
     }
 
     const startDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
 
     const results = await prisma.monitorResult.findMany({
       where: {
-        monitorId: parseInt(monitorId),
-        checkedAt: {
-          gte: startDate,
-        },
+        monitorId: monitor.id,
+        checkedAt: { gte: startDate },
       },
-      select: {
-        isUp: true,
-        responseTime: true,
-        checkedAt: true,
-      },
+      select: { isUp: true, checkedAt: true },
     });
 
     const buckets: Record<string, { up: number; total: number }> = {};
-
     for (let i = 0; i < daysBack; i++) {
       const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-      const label = date.toISOString().split("T")[0]; // YYYY-MM-DD format
+      const label = date.toISOString().split("T")[0];
       buckets[label] = { up: 0, total: 0 };
     }
 
-    results.forEach((result) => {
-      const date = new Date(result.checkedAt);
-      const label = date.toISOString().split("T")[0];
-
-      if (!buckets[label]) return;
-
+    for (const result of results) {
+      const label = new Date(result.checkedAt).toISOString().split("T")[0];
+      if (!buckets[label]) continue;
       buckets[label].total += 1;
       if (result.isUp) buckets[label].up += 1;
-    });
+    }
 
     const trend = Object.entries(buckets)
       .sort(([a], [b]) => a.localeCompare(b))
