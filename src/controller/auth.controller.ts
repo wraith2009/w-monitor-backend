@@ -138,6 +138,7 @@ export const SignInUser = async (
       id: user.id,
       name: user.name,
       email: user.email,
+      emailVerified: user.isEmailVerified,
     };
 
     apiResponse(res, {
@@ -354,6 +355,7 @@ export const RequestEmailVerification = async (
 ): Promise<void> => {
   try {
     const user = req.user;
+
     if (!user) {
       throw ErrorFactory.unauthorized("Unauthorized user");
     }
@@ -385,7 +387,7 @@ export const RequestEmailVerification = async (
       const minutesLeft = Math.ceil(
         (10 * 60 * 1000 -
           (now.getTime() - dbUser.verifiedEmailSent.getTime())) /
-          60000,
+        60000,
       );
       throw ErrorFactory.conflict(
         `Verification email recently sent. Please wait ${minutesLeft} minute(s) before requesting again.`,
