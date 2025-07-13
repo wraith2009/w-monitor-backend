@@ -431,3 +431,37 @@ export const getMonitorRecipient = async (
     globalErrorHandler(error as BaseError, req, res);
   }
 };
+
+export const fetchMonitorBySlug = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { slug } = req.params;
+
+    if (!slug) {
+      throw ErrorFactory.notFound("Monitor slug not provided");
+    }
+
+    const monitor = await prisma.monitor.findUnique({
+      where: { slug },
+      include: {
+        alertRecipients: true
+      }
+    });
+
+    if (!monitor) {
+      throw ErrorFactory.notFound("Monitor not found");
+    }
+    if (monitor.isDeleted) {
+      throw ErrorFactory.notFound("Monitor has been deleted");
+    }
+    apiResponse(res, {
+      statusCode: 200,
+      message: "Monitor fetched successfully",
+      data: monitor,
+    });
+  } catch (error) {
+    globalErrorHandler(error as BaseError, req, res);
+  }
+}

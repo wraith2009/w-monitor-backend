@@ -7,6 +7,8 @@ import {
   RegisterMonitor,
   removeMonitorRecipient,
   UpdateMonitor,
+
+  fetchMonitorBySlug
 } from "../controller/monitor.controller";
 
 const MonitorRouter = Router();
