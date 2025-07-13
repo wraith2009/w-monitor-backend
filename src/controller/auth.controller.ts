@@ -80,8 +80,8 @@ export const RegisterUser = async (
     `;
 
     await sendEmail(
-      process.env.EMAIL_USER || "no-reply@yourapp.com",
-      "Your App Name",
+      process.env.ALERT_SENDER_EMAIL || "rbh97995@gmail.com",
+      process.env.ALERT_SENDER_NAME || "Monitor Website",
       { email: user.email, name: user.name || undefined },
       {
         subject: "Verify Your Email",
@@ -215,7 +215,6 @@ export const RequestForgetPassword = async (
         textContent: `Reset your password by visiting the following link: ${resetLink}`,
       },
     );
-
 
     if (!emailResponse.success) {
       throw ErrorFactory.internal(
@@ -425,8 +424,8 @@ export const RequestEmailVerification = async (
     };
 
     const sendResult = await sendEmail(
-      process.env.EMAIL_USER || "no-reply@example.com",
-      "Your App Name",
+      process.env.ALERT_SENDER_EMAIL || "rbh97995@gmail.com",
+      process.env.ALERT_SENDER_NAME || "Monitor Website",
       { email: dbUser.email, name: dbUser.name || undefined },
       emailContent,
     );

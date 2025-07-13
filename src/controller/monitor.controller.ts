@@ -87,8 +87,7 @@ export const RegisterMonitor = async (
       throw ErrorFactory.dbOperation("Unable to create monitor record");
     }
 
-    void generateSlug(monitor.id);
-
+    monitor.slug = (await generateSlug(monitor.id)) ?? null;
     apiResponse(res, {
       statusCode: 201,
       message: "Monitor registered successfully",

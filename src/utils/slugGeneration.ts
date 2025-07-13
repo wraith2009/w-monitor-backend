@@ -1,7 +1,7 @@
 import prisma from "../db/db";
 import { encodeBase62 } from "./base62";
 
-export const generateSlug = async (id: number): Promise<void> => {
+export const generateSlug = async (id: number) => {
   try {
     const [partition] = await prisma.$queryRaw<
       {
@@ -38,6 +38,7 @@ export const generateSlug = async (id: number): Promise<void> => {
         slug: shortCode,
       },
     });
+    return shortCode;
 
     console.log(`Generated short URL: ${shortCode}`);
   } catch (error) {
