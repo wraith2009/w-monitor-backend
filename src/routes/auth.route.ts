@@ -14,7 +14,7 @@ const AuthRouter = Router();
 AuthRouter.route("/register").post(RegisterUser);
 AuthRouter.route("/signIn").post(SignInUser);
 AuthRouter.route("/request-reset-password").post(RequestForgetPassword);
-AuthRouter.route("/reser-password").post(ResetPassword);
+AuthRouter.route("/reset-password").post(ResetPassword);
 AuthRouter.route("/verify-email").post(VerifyEmail);
 AuthRouter.route("/request-email-verification").post(
   verifyPartialRequest,
