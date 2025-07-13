@@ -446,8 +446,8 @@ export const fetchMonitorBySlug = async (
     const monitor = await prisma.monitor.findUnique({
       where: { slug },
       include: {
-        alertRecipients: true
-      }
+        alertRecipients: true,
+      },
     });
 
     if (!monitor) {
@@ -464,4 +464,4 @@ export const fetchMonitorBySlug = async (
   } catch (error) {
     globalErrorHandler(error as BaseError, req, res);
   }
-}
+};
