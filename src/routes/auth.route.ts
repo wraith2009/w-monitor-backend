@@ -5,7 +5,7 @@ import {
   RequestForgetPassword,
   ResetPassword,
   VerifyEmail,
-  RequestEmailVerification
+  RequestEmailVerification,
 } from "../controller/auth.controller";
 import { verifyPartialRequest } from "../middleware/auth.middleware";
 
@@ -16,5 +16,8 @@ AuthRouter.route("/signIn").post(SignInUser);
 AuthRouter.route("/request-reset-password").post(RequestForgetPassword);
 AuthRouter.route("/reser-password").post(ResetPassword);
 AuthRouter.route("/verify-email").post(VerifyEmail);
-AuthRouter.route("/request-email-verification").post(verifyPartialRequest, RequestEmailVerification);
+AuthRouter.route("/request-email-verification").post(
+  verifyPartialRequest,
+  RequestEmailVerification,
+);
 export default AuthRouter;

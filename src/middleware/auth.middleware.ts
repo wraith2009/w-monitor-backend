@@ -40,7 +40,6 @@ export const verifyPartialRequest = async (
         "email" in decoded &&
         "userId" in decoded
       ) {
-
         req.user = decoded as UserPayload;
         next();
       } else {

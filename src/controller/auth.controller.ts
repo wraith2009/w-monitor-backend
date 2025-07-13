@@ -206,8 +206,8 @@ export const RequestForgetPassword = async (
     `;
 
     const emailResponse = await sendEmail(
-      process.env.EMAIL_USER || "no-reply@yourapp.com",
-      "Your App Name",
+      process.env.ALERT_SENDER_EMAIL || "rbh97995@gmail.com",
+      process.env.ALERT_SENDER_NAME || "Monitor Website",
       { email: user.email, name: user.name || undefined },
       {
         subject: "Reset Your Password",
@@ -215,6 +215,7 @@ export const RequestForgetPassword = async (
         textContent: `Reset your password by visiting the following link: ${resetLink}`,
       },
     );
+
 
     if (!emailResponse.success) {
       throw ErrorFactory.internal(
